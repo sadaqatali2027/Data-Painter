@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Painter (By: TerraNomad)</title>
+<style>
+:root {
+  --bg:#1a1a2e; --surface:#16213e; --surface2:#0f3460;
+  --accent:#e94560; --accent2:#00b4d8; --text:#eaeaea;
+  --text-dim:#8899aa; --border:#2a3a5e; --success:#2ecc71;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:18px;font-weight:600;color:var(--accent);letter-spacing:.4px;white-space:nowrap}
+header h1 span{color:var(--accent2)}
+header h1 small{font-size:11px;color:var(--text-dim);font-weight:400}
+
+.tab-bar{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
+.tab-btn{padding:5px 12px;border:1px solid var(--border);border-radius:5px 5px 0 0;background:transparent;color:var(--text-dim);font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap}
+.tab-btn.active{background:var(--surface2);color:var(--text);border-bottom-color:var(--surface2)}
+
+.app{display:flex;height:calc(100vh - 52px)}
+.sidebar{width:270px;min-width:270px;background:var(--surface);border-right:1px solid var(--border);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;font-size:13px}
+.canvas-area{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;position:relative}
+
+.ctrl-group{display:flex;flex-direction:column;gap:5px}
+.ctrl-group label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.7px}
+input[type="number"],input[type="text"],select{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-size:12px;width:100%}
+input[type="number"]:focus,input[type="text"]:focus,select:focus{outline:none;border-color:var(--accent2)}
+.row{display:flex;gap:6px}.row>*{flex:1}
+
+.btn{padding:7px 12px;border:none;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:5px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{filter:brightness(1.15)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--border)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{filter:brightness(1.1)}
+
+.mode-toggle{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.mode-toggle button{flex:1;padding:6px;background:transparent;color:var(--text-dim);border:none;font-size:11px;cursor:pointer;transition:.2s}
+.mode-toggle button.active{background:var(--accent2);color:#fff}
+
+input[type="range"]{-webkit-appearance:none;width:100%;height:4px;background:var(--border);border-radius:2px;outline:none}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--accent2);border-radius:50%;cursor:pointer}
+
+canvas{border:1px solid var(--border);border-radius:6px;cursor:crosshair;background:#0d1117}
+
+.data-table-wrap{max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:5px}
+.data-table-wrap table{width:100%;border-collapse:collapse;font-size:10px}
+.data-table-wrap th{background:var(--surface2);padding:4px 6px;text-align:left;position:sticky;top:0;color:var(--text-dim)}
+.data-table-wrap td{padding:3px 6px;border-top:1px solid var(--border);font-family:Consolas,monospace;font-size:10px}
+
+.status-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:5px 16px;font-size:11px;color:var(--text-dim);pointer-events:none;white-space:nowrap}
+
+.toast{position:fixed;top:16px;right:16px;background:var(--success);color:#fff;padding:8px 18px;border-radius:7px;font-size:12px;opacity:0;transform:translateY(-10px);transition:.3s;z-index:999}
+.toast.show{opacity:1;transform:translateY(0)}
+
+.color-swatches{display:flex;gap:5px;flex-wrap:wrap}
+.swatch{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s}
+.swatch.active{border-color:#fff;transform:scale(1.15)}
+
+.separator{border:none;border-top:1px solid var(--border);margin:2px 0}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.track-tabs{display:flex;gap:2px;margin-top:4px}
+.track-tab{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-dim);font-size:11px;cursor:pointer;transition:.2s}
+.track-tab.active{background:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+<header>
+  <h1>Data <span>Painter</span> <small>(By: TerraNomad)</small></h1>
+  <div class="tab-bar" id="tabBar"></div>
+</header>
+
+<div class="app">
+<div class="sidebar" id="sidebar"></div>
+<div class="canvas-area">
+  <canvas id="plotCanvas"></canvas>
+  <div class="status-bar" id="statusBar">Click or drag to paint data</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIGURATION
+// ═══════════════════════════════════════════════════════
+const TABS = [
+  {id:'1d',    label:'1D Well Log'},
+  {id:'2d',    label:'2D Cross Plot'},
+  {id:'hist',  label:'Histogram'},
+  {id:'multi', label:'Multi-Track'},
+  {id:'tern',  label:'Ternary'},
+  {id:'fence', label:'Fence/Decline'},
+  {id:'semilog',label:'Semi-Log'},
+  {id:'zone',  label:'Zone/Fill'}
+];
+
+const COLORS = ['#e94560','#00b4d8','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#3498db','#e74c3c','#ecf0f1'];
+let activeColor = COLORS[0];
+let currentTab = '1d';
+let drawMode = 'click';
+let isDrawing = false;
+let lastDX = null, lastDY = null;
+
+// Data stores
+let data1D = [];
+let data2D = [];
+let dataHist = [];   // {bin, count} — we store raw values, compute bins
+let histRaw = [];    // raw values clicked
+let dataMulti = {A:[], B:[], C:[]};
+let activeTrack = 'A';
+let dataTern = [];   // {a,b,c, color}
+let dataFence = [];  // {x,y, color}
+let dataSemilog = [];// {x,y, color}
+let dataZone = {upper:[], lower:[]}; // two boundary curves
+let activeZoneCurve = 'upper';
+
+const canvas = document.getElementById('plotCanvas');
+const ctx = canvas.getContext('2d');
+
+// ═══════════════════════════════════════════════════════
+//  BUILD UI
+// ═══════════════════════════════════════════════════════
+function buildTabs(){
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+  TABS.forEach(t=>{
+    const b = document.createElement('button');
+    b.className = 'tab-btn'+(t.id===currentTab?' active':'');
+    b.textContent = t.label;
+    b.onclick = ()=> switchTab(t.id);
+    bar.appendChild(b);
+  });
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  buildTabs();
+  buildSidebar();
+  resizeCanvas();
+  render();
+}
+
+function buildSidebar(){
+  const sb = document.getElementById('sidebar');
+  let h = '';
+
+  // ── Axis controls per tab ──
+  h += '<div class="ctrl-group"><label>Axis Settings</label>';
+  if(currentTab==='1d'){
+    h += row('Depth Min','depthMin',0,'Depth Max','depthMax',5000);
+    h += row('Value Min','valMin1d',0,'Value Max','valMax1d',150);
+    h += '<div class="ctrl-group" style="margin-top:4px"><label style="font-size:10px">Curve Name</label><input type="text" id="curveName" value="GR"></div>';
+  } else if(currentTab==='2d'){
+    h += row('X Min','xMin',0,'X Max','xMax',150);
+    h += row('Y Min','yMin',0,'Y Max','yMax',100);
+    h += '<div class="row" style="margin-top:4px">'+mini('X Label','xLabel','GR','text')+mini('Y Label','yLabel','NPHI','text')+'</div>';
+  } else if(currentTab==='hist'){
+    h += row('Value Min','histMin',0,'Value Max','histMax',150);
+    h += '<div class="row" style="margin-top:4px">'+mini('Bins','histBins',20)+mini('Max Count','histMaxCt',50)+'</div>';
+    h += '<div class="ctrl-group" style="margin-top:4px"><label style="font-size:10px">Parameter</label><input type="text" id="histParam" value="GR"></div>';
+  } else if(currentTab==='multi'){
+    h += row('Depth Min','mDepthMin',0,'Depth Max','mDepthMax',5000);
+    h += '<div class="ctrl-group" style="margin-top:4px"><label style="font-size:10px">Track Ranges (Min–Max)</label></div>';
+    h += '<div class="row">'+mini('A Min','mAMin',0)+mini('A Max','mAMax',150)+'</div>';
+    h += '<div class="row">'+mini('B Min','mBMin',0)+mini('B Max','mBMax',3)+'</div>';
+    h += '<div class="row">'+mini('C Min','mCMin',0)+mini('C Max','mCMax',0.45)+'</div>';
+    h += '<div class="row" style="margin-top:2px">'+mini('A Name','mAName','GR','text')+mini('B Name','mBName','RHOB','text')+mini('C Name','mCName','NPHI','text')+'</div>';
+    h += '<div class="ctrl-group" style="margin-top:6px"><label style="font-size:10px">Active Track</label><div class="track-tabs">';
+    ['A','B','C'].forEach(t=>{
+      h += `<button class="track-tab${activeTrack===t?' active':''}" onclick="activeTrack='${t}';buildSidebar()">${t}</button>`;
+    });
+    h += '</div></div>';
+  } else if(currentTab==='tern'){
+    h += '<div class="ctrl-group"><label style="font-size:10px">Vertex Labels</label></div>';
+    h += '<div class="row">'+mini('Top','ternA','Sand','text')+mini('Left','ternB','Silt','text')+mini('Right','ternC','Clay','text')+'</div>';
+  } else if(currentTab==='fence'){
+    h += row('X Min','fxMin',0,'X Max','fxMax',365);
+    h += row('Y Min','fyMin',0,'Y Max','fyMax',10000);
+    h += '<div class="row" style="margin-top:4px">'+mini('X Label','fxLabel','Days','text')+mini('Y Label','fyLabel','Rate','text')+'</div>';
+  } else if(currentTab==='semilog'){
+    h += row('X Min','slxMin',0.01,'X Max','slxMax',1000);
+    h += row('Y Min','slyMin',0.001,'Y Max','slyMax',1);
+    h += '<div class="row" style="margin-top:4px">'+mini('X Label','slxLabel','Porosity','text')+mini('Y Label','slyLabel','Resistivity','text')+'</div>';
+    h += '<div class="ctrl-group" style="margin-top:4px"><label style="font-size:10px">Scale</label><select id="slScale"><option value="semilog-x">Semi-Log X</option><option value="semilog-y">Semi-Log Y</option><option value="loglog" selected>Log-Log</option></select></div>';
+  } else if(currentTab==='zone'){
+    h += row('Depth Min','zDepthMin',0,'Depth Max','zDepthMax',5000);
+    h += row('Value Min','zValMin',0,'Value Max','zValMax',150);
+    h += '<div class="ctrl-group" style="margin-top:4px"><label style="font-size:10px">Curve Name</label><input type="text" id="zoneCurveName" value="GR"></div>';
+    h += '<div class="ctrl-group" style="margin-top:4px"><label style="font-size:10px">Cutoff Value</label><input type="number" id="zoneCutoff" value="75" step="5"></div>';
+    h += '<div class="ctrl-group" style="margin-top:6px"><label style="font-size:10px">Active Boundary (paint on)</label><div class="track-tabs">';
+    h += '<button class="track-tab' + (activeZoneCurve==='upper'?' active':'') + '" onclick="setZoneCurve(\'upper\')">Left Curve</button>';
+    h += '<button class="track-tab' + (activeZoneCurve==='lower'?' active':'') + '" onclick="setZoneCurve(\'lower\')">Right Curve</button>';
+    h += '</div>';
+    h += '<div style="font-size:10px;margin-top:4px;color:' + (activeZoneCurve==='upper'?'#e94560':'#00b4d8') + '">Drawing: ' + (activeZoneCurve==='upper'?'Left (red)':'Right (blue)') + ' curve</div>';
+    h += '</div>';
+  }
+  h += '<button class="btn btn-secondary" style="margin-top:4px;font-size:11px" onclick="render()">Apply Axes</button></div>';
+
+  h += '<hr class="separator">';
+
+  // ── Drawing tools ──
+  if(currentTab !== 'hist'){
+    h += '<div class="ctrl-group"><label>Drawing Mode</label><div class="mode-toggle"><button id="modeClick" class="'+(drawMode==='click'?'active':'')+'" onclick="setMode(\'click\')">Click</button><button id="modeDraw" class="'+(drawMode==='draw'?'active':'')+'" onclick="setMode(\'draw\')">Freehand</button></div></div>';
+    h += '<div class="ctrl-group"><label>Point Size: <span id="sizeVal">4</span>px</label><input type="range" id="pointSize" min="1" max="12" value="4" oninput="document.getElementById(\'sizeVal\').textContent=this.value"></div>';
+    h += '<div class="ctrl-group"><label>Draw Spacing</label><input type="range" id="drawSpacing" min="1" max="30" value="5"></div>';
+  } else {
+    h += '<div class="ctrl-group"><label>Click bars to increase height, right-click to decrease</label></div>';
+  }
+
+  h += '<div class="ctrl-group"><label>Color</label><div class="color-swatches" id="swatches"></div></div>';
+  h += '<hr class="separator">';
+
+  // ── Actions ──
+  h += '<div class="ctrl-group"><label>Actions</label><button class="btn btn-secondary" onclick="undoLast()">Undo Last</button><button class="btn btn-secondary" onclick="clearAll()">Clear All</button></div>';
+  h += '<hr class="separator">';
+
+  // ── Export ──
+  h += '<div class="ctrl-group"><label>Export (<span id="pointCount">0</span> pts)</label><button class="btn btn-success" onclick="exportCSV()">Download CSV</button><button class="btn btn-secondary" onclick="copyClipboard()">Copy to Clipboard</button>';
+  h += '<button class="btn btn-secondary" style="margin-top:4px" onclick="exportPNG()">Download PNG</button>';
+  if(currentTab==='1d'||currentTab==='multi'){
+    h += '<button class="btn btn-primary" style="margin-top:4px" onclick="exportLAS()">Download LAS 2.0</button>';
+  }
+  h += '</div>';
+  h += '<hr class="separator">';
+
+  // ── Preview ──
+  h += '<div class="ctrl-group"><label>Data Preview</label><div class="data-table-wrap" id="dataPreview"><table><thead><tr><th>—</th></tr></thead><tbody><tr><td style="color:var(--text-dim)">No data</td></tr></tbody></table></div></div>';
+
+  sb.innerHTML = h;
+  buildSwatches();
+  updateTable();
+}
+
+function setZoneCurve(c){
+  activeZoneCurve=c;
+  buildSidebar();
+  render();
+}
+
+function row(l1,id1,v1,l2,id2,v2){
+  return `<div class="row">${mini(l1,id1,v1)}${mini(l2,id2,v2)}</div>`;
+}
+function mini(label,id,val,type){
+  type = type||'number';
+  return `<div class="ctrl-group"><label style="font-size:10px">${label}</label><input type="${type}" id="${id}" value="${val}"></div>`;
+}
+
+function buildSwatches(){
+  const w = document.getElementById('swatches');
+  if(!w) return;
+  w.innerHTML = '';
+  COLORS.forEach(c=>{
+    const s = document.createElement('div');
+    s.className='swatch'+(c===activeColor?' active':'');
+    s.style.background=c;
+    s.onclick=()=>{document.querySelectorAll('.swatch').forEach(e=>e.classList.remove('active'));s.classList.add('active');activeColor=c;};
+    w.appendChild(s);
+  });
+}
+
+function setMode(m){
+  drawMode=m;
+  const a=document.getElementById('modeClick'), b=document.getElementById('modeDraw');
+  if(a)a.classList.toggle('active',m==='click');
+  if(b)b.classList.toggle('active',m==='draw');
+}
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS SIZING
+// ═══════════════════════════════════════════════════════
+function resizeCanvas(){
+  const area = canvas.parentElement;
+  const w = area.clientWidth - 30, h = area.clientHeight - 50;
+  if(currentTab==='1d'||currentTab==='zone'){
+    canvas.width = Math.min(360, w);
+    canvas.height = h;
+  } else if(currentTab==='multi'){
+    canvas.width = Math.min(700, w);
+    canvas.height = h;
+  } else if(currentTab==='tern'){
+    const s = Math.min(w, h, 650);
+    canvas.width = s;
+    canvas.height = s * 0.95;
+  } else {
+    canvas.width = Math.max(480, Math.min(w, 700));
+    canvas.height = Math.max(400, Math.min(h, 600));
+  }
+}
+window.addEventListener('resize',()=>{resizeCanvas();render()});
+
+// ═══════════════════════════════════════════════════════
+//  MARGINS & AXIS HELPERS
+// ═══════════════════════════════════════════════════════
+const ML={top:50,right:30,bottom:55,left:65};
+
+function gv(id,fb){const e=document.getElementById(id);return e?(e.type==='number'?+e.value:e.value):fb;}
+function niceStep(range,ticks){
+  const r=range/ticks,m=Math.pow(10,Math.floor(Math.log10(r))),n=r/m;
+  return (n<1.5?1:n<3?2:n<7?5:10)*m;
+}
+
+// ═══════════════════════════════════════════════════════
+//  COORDINATE TRANSFORMS
+// ═══════════════════════════════════════════════════════
+function getPlotRect(margins){
+  const m=margins||ML;
+  return {x:m.left,y:m.top,w:canvas.width-m.left-m.right,h:canvas.height-m.top-m.bottom};
+}
+
+function px2data_1d(px,py){
+  const p=getPlotRect({top:50,right:30,bottom:55,left:65});
+  const depthMin=gv('depthMin',0),depthMax=gv('depthMax',5000),vMin=gv('valMin1d',0),vMax=gv('valMax1d',150);
+  return {depth:+(depthMin+(py-p.y)/p.h*(depthMax-depthMin)).toFixed(2), value:+(vMin+(px-p.x)/p.w*(vMax-vMin)).toFixed(2)};
+}
+function data2px_1d(d){
+  const p=getPlotRect({top:50,right:30,bottom:55,left:65});
+  const depthMin=gv('depthMin',0),depthMax=gv('depthMax',5000),vMin=gv('valMin1d',0),vMax=gv('valMax1d',150);
+  return {px:p.x+(d.value-vMin)/(vMax-vMin)*p.w, py:p.y+(d.depth-depthMin)/(depthMax-depthMin)*p.h};
+}
+
+function px2data_2d(px,py){
+  const p=getPlotRect();
+  const xMin=gv('xMin',0),xMax=gv('xMax',150),yMin=gv('yMin',0),yMax=gv('yMax',100);
+  return {x:+(xMin+(px-p.x)/p.w*(xMax-xMin)).toFixed(2), y:+(yMax-(py-p.y)/p.h*(yMax-yMin)).toFixed(2)};
+}
+function data2px_2d(d){
+  const p=getPlotRect();
+  const xMin=gv('xMin',0),xMax=gv('xMax',150),yMin=gv('yMin',0),yMax=gv('yMax',100);
+  return {px:p.x+(d.x-xMin)/(xMax-xMin)*p.w, py:p.y+(1-(d.y-yMin)/(yMax-yMin))*p.h};
+}
+
+// Ternary: equilateral triangle
+function tern2px(a,b,c){
+  const p=getPlotRect({top:60,right:40,bottom:40,left:40});
+  const sum=a+b+c||1;
+  const na=a/sum,nb=b/sum,nc=c/sum;
+  const cx_t=p.x+p.w/2, top_y=p.y, bl_x=p.x, bl_y=p.y+p.h, br_x=p.x+p.w, br_y=p.y+p.h;
+  const px=na*cx_t+nb*bl_x+nc*br_x;
+  const py=na*top_y+nb*bl_y+nc*br_y;
+  return {px,py};
+}
+function px2tern(px,py){
+  const p=getPlotRect({top:60,right:40,bottom:40,left:40});
+  const cx_t=p.x+p.w/2, top_y=p.y, bl_x=p.x, bl_y=p.y+p.h, br_x=p.x+p.w, br_y=p.y+p.h;
+  // Barycentric
+  const d=(bl_y-br_y)*(cx_t-br_x)+(br_x-bl_x)*(top_y-br_y) || 1;
+  const na=((bl_y-br_y)*(px-br_x)+(br_x-bl_x)*(py-br_y))/d;
+  const nb=((br_y-top_y)*(px-br_x)+(cx_t-br_x)*(py-br_y))/d;
+  const nc=1-na-nb;
+  return {a:Math.max(0,+(na*100).toFixed(1)),b:Math.max(0,+(nb*100).toFixed(1)),c:Math.max(0,+(nc*100).toFixed(1))};
+}
+
+function px2data_fence(px,py){
+  const p=getPlotRect();
+  const xMin=gv('fxMin',0),xMax=gv('fxMax',365),yMin=gv('fyMin',0),yMax=gv('fyMax',10000);
+  return {x:+(xMin+(px-p.x)/p.w*(xMax-xMin)).toFixed(2), y:+(yMax-(py-p.y)/p.h*(yMax-yMin)).toFixed(2)};
+}
+function data2px_fence(d){
+  const p=getPlotRect();
+  const xMin=gv('fxMin',0),xMax=gv('fxMax',365),yMin=gv('fyMin',0),yMax=gv('fyMax',10000);
+  return {px:p.x+(d.x-xMin)/(xMax-xMin)*p.w, py:p.y+(1-(d.y-yMin)/(yMax-yMin))*p.h};
+}
+
+// Semi-log / Log-log transforms
+function px2data_semilog(px,py){
+  const p=getPlotRect();
+  const scale=gv('slScale','loglog');
+  const xMin=gv('slxMin',0.01),xMax=gv('slxMax',1000),yMin=gv('slyMin',0.001),yMax=gv('slyMax',1);
+  let x,y;
+  const fx=(px-p.x)/p.w, fy=1-(py-p.y)/p.h;
+  if(scale==='loglog'||scale==='semilog-x'){
+    x = Math.pow(10, Math.log10(xMin)+fx*(Math.log10(xMax)-Math.log10(xMin)));
+  } else { x = xMin+fx*(xMax-xMin); }
+  if(scale==='loglog'||scale==='semilog-y'){
+    y = Math.pow(10, Math.log10(yMin)+fy*(Math.log10(yMax)-Math.log10(yMin)));
+  } else { y = yMin+fy*(yMax-yMin); }
+  return {x:+x.toPrecision(4),y:+y.toPrecision(4)};
+}
+function data2px_semilog(d){
+  const p=getPlotRect();
+  const scale=gv('slScale','loglog');
+  const xMin=gv('slxMin',0.01),xMax=gv('slxMax',1000),yMin=gv('slyMin',0.001),yMax=gv('slyMax',1);
+  let fx,fy;
+  if(scale==='loglog'||scale==='semilog-x'){
+    fx=(Math.log10(d.x)-Math.log10(xMin))/(Math.log10(xMax)-Math.log10(xMin));
+  } else { fx=(d.x-xMin)/(xMax-xMin); }
+  if(scale==='loglog'||scale==='semilog-y'){
+    fy=(Math.log10(d.y)-Math.log10(yMin))/(Math.log10(yMax)-Math.log10(yMin));
+  } else { fy=(d.y-yMin)/(yMax-yMin); }
+  return {px:p.x+fx*p.w, py:p.y+(1-fy)*p.h};
+}
+
+// Zone (same as 1D but with two curves)
+function px2data_zone(px,py){
+  const p=getPlotRect({top:50,right:30,bottom:55,left:65});
+  const dMin=gv('zDepthMin',0),dMax=gv('zDepthMax',5000),vMin=gv('zValMin',0),vMax=gv('zValMax',150);
+  return {depth:+(dMin+(py-p.y)/p.h*(dMax-dMin)).toFixed(2), value:+(vMin+(px-p.x)/p.w*(vMax-vMin)).toFixed(2)};
+}
+function data2px_zone(d){
+  const p=getPlotRect({top:50,right:30,bottom:55,left:65});
+  const dMin=gv('zDepthMin',0),dMax=gv('zDepthMax',5000),vMin=gv('zValMin',0),vMax=gv('zValMax',150);
+  return {px:p.x+(d.value-vMin)/(vMax-vMin)*p.w, py:p.y+(d.depth-dMin)/(dMax-dMin)*p.h};
+}
+
+// Multi-track
+function px2data_multi(px,py,track){
+  const depthMin=gv('mDepthMin',0),depthMax=gv('mDepthMax',5000);
+  const trackW = (canvas.width-80)/3;
+  const tIdx = {A:0,B:1,C:2}[track];
+  const tLeft = 65 + tIdx*trackW;
+  const m={top:50,bottom:55};
+  const pH = canvas.height-m.top-m.bottom;
+  const vMin=gv('m'+track+'Min',0),vMax=gv('m'+track+'Max',150);
+  const frac_x = (px - tLeft) / trackW;
+  const depth = depthMin + (py-m.top)/pH*(depthMax-depthMin);
+  const value = vMin + frac_x * (vMax-vMin);
+  return {depth:+depth.toFixed(2), value:+value.toFixed(2)};
+}
+function data2px_multi(d,track){
+  const depthMin=gv('mDepthMin',0),depthMax=gv('mDepthMax',5000);
+  const trackW = (canvas.width-80)/3;
+  const tIdx = {A:0,B:1,C:2}[track];
+  const tLeft = 65 + tIdx*trackW;
+  const m={top:50,bottom:55};
+  const pH = canvas.height-m.top-m.bottom;
+  const vMin=gv('m'+track+'Min',0),vMax=gv('m'+track+'Max',150);
+  return {px:tLeft+(d.value-vMin)/(vMax-vMin)*trackW, py:m.top+(d.depth-depthMin)/(depthMax-depthMin)*pH};
+}
+function getMultiTrackFromX(px){
+  const trackW=(canvas.width-80)/3;
+  const idx = Math.floor((px-65)/trackW);
+  return ['A','B','C'][Math.max(0,Math.min(2,idx))];
+}
+
+// ═══════════════════════════════════════════════════════
+//  IN-PLOT CHECK
+// ═══════════════════════════════════════════════════════
+function inPlot(px,py){
+  if(currentTab==='tern'){
+    const t=px2tern(px,py);
+    return t.a>=-.5 && t.b>=-.5 && t.c>=-.5;
+  }
+  if(currentTab==='multi'){
+    const m={top:50,bottom:55};
+    return px>=65 && px<=canvas.width-15 && py>=m.top && py<=canvas.height-m.bottom;
+  }
+  const m = (currentTab==='1d'||currentTab==='zone')?{top:50,right:30,bottom:55,left:65}:ML;
+  const p=getPlotRect(m);
+  return px>=p.x && px<=p.x+p.w && py>=p.y && py<=p.y+p.h;
+}
+
+// ═══════════════════════════════════════════════════════
+//  MOUSE HANDLERS
+// ═══════════════════════════════════════════════════════
+function getPos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+
+canvas.addEventListener('mousedown',e=>{
+  const p=getPos(e);
+  if(!inPlot(p.x,p.y))return;
+
+  if(currentTab==='hist'){
+    handleHistClick(p, e.button===2?-1:1);
+    return;
+  }
+
+  if(drawMode==='click'){
+    addPoint(p.x,p.y);
+  } else {
+    isDrawing=true; lastDX=p.x; lastDY=p.y;
+    addPoint(p.x,p.y);
+  }
+});
+
+canvas.addEventListener('contextmenu',e=>{
+  if(currentTab==='hist'){e.preventDefault();const p=getPos(e);if(inPlot(p.x,p.y))handleHistClick(p,-1);}
+});
+
+canvas.addEventListener('mousemove',e=>{
+  const p=getPos(e);
+  if(inPlot(p.x,p.y)) updateStatus(p);
+  if(drawMode==='draw'&&isDrawing&&inPlot(p.x,p.y)){
+    const sp=+(document.getElementById('drawSpacing')||{value:5}).value;
+    if(Math.hypot(p.x-lastDX,p.y-lastDY)>=sp){
+      addPoint(p.x,p.y);lastDX=p.x;lastDY=p.y;
+    }
+  }
+});
+canvas.addEventListener('mouseup',()=>{isDrawing=false});
+canvas.addEventListener('mouseleave',()=>{isDrawing=false});
+
+canvas.addEventListener('dblclick',e=>{
+  const p=getPos(e);
+  removeNearest(p);
+});
+
+function updateStatus(p){
+  const sb=document.getElementById('statusBar');
+  if(currentTab==='1d'){const d=px2data_1d(p.x,p.y);sb.textContent=`Depth: ${d.depth}  |  Value: ${d.value}`;}
+  else if(currentTab==='2d'){const d=px2data_2d(p.x,p.y);sb.textContent=`X: ${d.x}  |  Y: ${d.y}`;}
+  else if(currentTab==='tern'){const d=px2tern(p.x,p.y);sb.textContent=`A: ${d.a}%  B: ${d.b}%  C: ${d.c}%`;}
+  else if(currentTab==='fence'){const d=px2data_fence(p.x,p.y);sb.textContent=`X: ${d.x}  |  Y: ${d.y}`;}
+  else if(currentTab==='semilog'){const d=px2data_semilog(p.x,p.y);sb.textContent=`X: ${d.x}  |  Y: ${d.y}`;}
+  else if(currentTab==='zone'){const d=px2data_zone(p.x,p.y);sb.textContent=`Depth: ${d.depth}  |  Value: ${d.value}  [${activeZoneCurve}]`;}
+  else if(currentTab==='multi'){const t=getMultiTrackFromX(p.x);const d=px2data_multi(p.x,p.y,t);sb.textContent=`Track ${t}: Depth ${d.depth}  Value ${d.value}`;}
+  else if(currentTab==='hist'){sb.textContent='Click to add, right-click to subtract';}
+}
+
+function addPoint(px,py){
+  if(currentTab==='1d'){const d=px2data_1d(px,py);d.color=activeColor;data1D.push(d);}
+  else if(currentTab==='2d'){const d=px2data_2d(px,py);d.color=activeColor;data2D.push(d);}
+  else if(currentTab==='tern'){const d=px2tern(px,py);d.color=activeColor;dataTern.push(d);}
+  else if(currentTab==='fence'){const d=px2data_fence(px,py);d.color=activeColor;dataFence.push(d);}
+  else if(currentTab==='semilog'){const d=px2data_semilog(px,py);d.color=activeColor;dataSemilog.push(d);}
+  else if(currentTab==='zone'){const d=px2data_zone(px,py);d.color=activeColor;dataZone[activeZoneCurve].push(d);}
+  else if(currentTab==='multi'){
+    const t=getMultiTrackFromX(px);
+    const d=px2data_multi(px,py,t);d.color=activeColor;
+    dataMulti[t].push(d);
+  }
+  render(); updateTable();
+}
+
+function handleHistClick(p, delta){
+  const pr=getPlotRect();
+  const bins=gv('histBins',20);
+  const vMin=gv('histMin',0),vMax=gv('histMax',150);
+  const binW=pr.w/bins;
+  const idx=Math.floor((p.x-pr.x)/binW);
+  if(idx<0||idx>=bins)return;
+  if(!dataHist[idx])dataHist[idx]={count:0,color:activeColor};
+  dataHist[idx].count=Math.max(0,dataHist[idx].count+delta);
+  dataHist[idx].color=activeColor;
+  render(); updateTable();
+}
+
+function removeNearest(p){
+  let arr, d2pxFn;
+  if(currentTab==='1d'){arr=data1D;d2pxFn=data2px_1d;}
+  else if(currentTab==='2d'){arr=data2D;d2pxFn=data2px_2d;}
+  else if(currentTab==='tern'){arr=dataTern;d2pxFn=d=>tern2px(d.a,d.b,d.c);}
+  else if(currentTab==='fence'){arr=dataFence;d2pxFn=data2px_fence;}
+  else if(currentTab==='semilog'){arr=dataSemilog;d2pxFn=data2px_semilog;}
+  else if(currentTab==='zone'){arr=dataZone[activeZoneCurve];d2pxFn=data2px_zone;}
+  else if(currentTab==='multi'){arr=dataMulti[activeTrack];d2pxFn=d=>data2px_multi(d,activeTrack);}
+  else return;
+  if(!arr||arr.length===0)return;
+  let minD=Infinity,minI=-1;
+  arr.forEach((d,i)=>{const pt=d2pxFn(d);const dist=Math.hypot(p.x-pt.px,p.y-pt.py);if(dist<minD){minD=dist;minI=i;}});
+  if(minD<15){arr.splice(minI,1);render();updateTable();showToast('Point removed');}
+}
+
+// ═══════════════════════════════════════════════════════
+//  UNDO / CLEAR
+// ═══════════════════════════════════════════════════════
+function getActiveArr(){
+  if(currentTab==='1d')return data1D;
+  if(currentTab==='2d')return data2D;
+  if(currentTab==='tern')return dataTern;
+  if(currentTab==='fence')return dataFence;
+  if(currentTab==='semilog')return dataSemilog;
+  if(currentTab==='zone')return dataZone[activeZoneCurve];
+  if(currentTab==='multi')return dataMulti[activeTrack];
+  return null;
+}
+function undoLast(){
+  if(currentTab==='hist'){
+    for(let i=dataHist.length-1;i>=0;i--){if(dataHist[i]&&dataHist[i].count>0){dataHist[i].count--;break;}}
+  } else {
+    const a=getActiveArr();if(a&&a.length)a.pop();
+  }
+  render();updateTable();showToast('Undo');
+}
+function clearAll(){
+  if(currentTab==='1d')data1D=[];
+  else if(currentTab==='2d')data2D=[];
+  else if(currentTab==='hist')dataHist=[];
+  else if(currentTab==='tern')dataTern=[];
+  else if(currentTab==='fence')dataFence=[];
+  else if(currentTab==='semilog')dataSemilog=[];
+  else if(currentTab==='zone'){dataZone.upper.length=0;dataZone.lower.length=0;activeZoneCurve='upper';}
+  else if(currentTab==='multi'){dataMulti.A.length=0;dataMulti.B.length=0;dataMulti.C.length=0;activeTrack='A';}
+  buildSidebar();render();updateTable();showToast('Cleared');
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER — Master
+// ═══════════════════════════════════════════════════════
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#0d1117';ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  if(currentTab==='1d') render1D();
+  else if(currentTab==='2d') render2D();
+  else if(currentTab==='hist') renderHist();
+  else if(currentTab==='multi') renderMulti();
+  else if(currentTab==='tern') renderTern();
+  else if(currentTab==='fence') renderFence();
+  else if(currentTab==='semilog') renderSemilog();
+  else if(currentTab==='zone') renderZone();
+
+  // update count
+  const el=document.getElementById('pointCount');
+  if(el) el.textContent = getCount();
+}
+
+function getCount(){
+  if(currentTab==='1d')return data1D.length;
+  if(currentTab==='2d')return data2D.length;
+  if(currentTab==='hist')return dataHist.reduce((s,b)=>s+(b?b.count:0),0);
+  if(currentTab==='multi')return dataMulti.A.length+dataMulti.B.length+dataMulti.C.length;
+  if(currentTab==='tern')return dataTern.length;
+  if(currentTab==='fence')return dataFence.length;
+  if(currentTab==='semilog')return dataSemilog.length;
+  if(currentTab==='zone')return dataZone.upper.length+dataZone.lower.length;
+  return 0;
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER HELPERS
+// ═══════════════════════════════════════════════════════
+function drawGrid(pr, xMin,xMax,yMin,yMax, xTicks,yTicks, yInvert){
+  ctx.fillStyle='#111822';ctx.fillRect(pr.x,pr.y,pr.w,pr.h);
+  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  ctx.fillStyle='#667';ctx.font='10px Consolas,monospace';
+
+  const xS=niceStep(xMax-xMin,xTicks||8);
+  for(let v=Math.ceil(xMin/xS)*xS;v<=xMax;v+=xS){
+    const x=pr.x+(v-xMin)/(xMax-xMin)*pr.w;
+    ctx.beginPath();ctx.moveTo(x,pr.y);ctx.lineTo(x,pr.y+pr.h);ctx.stroke();
+    ctx.textAlign='center';ctx.fillText(v%1===0?v.toFixed(0):v.toFixed(1),x,pr.y+pr.h+14);
+  }
+  const yS=niceStep(yMax-yMin,yTicks||8);
+  for(let v=Math.ceil(yMin/yS)*yS;v<=yMax;v+=yS){
+    const y = yInvert ? pr.y+(v-yMin)/(yMax-yMin)*pr.h : pr.y+(1-(v-yMin)/(yMax-yMin))*pr.h;
+    ctx.beginPath();ctx.moveTo(pr.x,y);ctx.lineTo(pr.x+pr.w,y);ctx.stroke();
+    ctx.textAlign='right';ctx.fillText(v%1===0?v.toFixed(0):v.toFixed(1),pr.x-8,y+3);
+  }
+  ctx.setLineDash([]);
+  ctx.strokeStyle='#3a4a6e';ctx.lineWidth=1.5;ctx.strokeRect(pr.x,pr.y,pr.w,pr.h);
+}
+
+function drawPoints(arr,d2pxFn){
+  const sz=+(document.getElementById('pointSize')||{value:4}).value;
+  arr.forEach(d=>{
+    const pt=d2pxFn(d);
+    ctx.beginPath();ctx.arc(pt.px,pt.py,sz,0,Math.PI*2);ctx.fillStyle=d.color||activeColor;ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=.5;ctx.stroke();
+  });
+}
+
+function drawLine(arr,d2pxFn,color,sortKey){
+  if(arr.length<2)return;
+  const sorted=sortKey?[...arr].sort((a,b)=>a[sortKey]-b[sortKey]):arr;
+  ctx.strokeStyle=color||'rgba(0,180,216,0.4)';ctx.lineWidth=1.5;ctx.beginPath();
+  const f=d2pxFn(sorted[0]);ctx.moveTo(f.px,f.py);
+  for(let i=1;i<sorted.length;i++){const pt=d2pxFn(sorted[i]);ctx.lineTo(pt.px,pt.py);}
+  ctx.stroke();
+}
+
+function drawLabel(text,x,y,rot){
+  ctx.fillStyle='#00b4d8';ctx.font='bold 12px Segoe UI,sans-serif';ctx.textAlign='center';
+  if(rot){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.fillText(text,0,0);ctx.restore();}
+  else ctx.fillText(text,x,y);
+}
+
+// ═══════════════════════════════════════════════════════
+//  1D WELL LOG
+// ═══════════════════════════════════════════════════════
+function render1D(){
+  const pr=getPlotRect({top:50,right:30,bottom:55,left:65});
+  const dMin=gv('depthMin',0),dMax=gv('depthMax',5000),vMin=gv('valMin1d',0),vMax=gv('valMax1d',150);
+  drawGrid(pr,vMin,vMax,dMin,dMax,5,10,true);
+  drawLabel(gv('curveName','GR'),pr.x+pr.w/2,pr.y-25);
+  drawLabel('Depth',16,pr.y+pr.h/2,-Math.PI/2);
+  drawLine(data1D,data2px_1d,'rgba(0,180,216,0.4)','depth');
+  drawPoints(data1D,data2px_1d);
+}
+
+// ═══════════════════════════════════════════════════════
+//  2D CROSS PLOT
+// ═══════════════════════════════════════════════════════
+function render2D(){
+  const pr=getPlotRect();
+  const xMin=gv('xMin',0),xMax=gv('xMax',150),yMin=gv('yMin',0),yMax=gv('yMax',100);
+  drawGrid(pr,xMin,xMax,yMin,yMax);
+  const xl=gv('xLabel','X'),yl=gv('yLabel','Y');
+  drawLabel(xl,pr.x+pr.w/2,pr.y+pr.h+42);
+  drawLabel(yl,16,pr.y+pr.h/2,-Math.PI/2);
+  ctx.fillStyle='#aab';ctx.font='13px Segoe UI,sans-serif';ctx.textAlign='center';
+  ctx.fillText(`${xl} vs ${yl}`,pr.x+pr.w/2,pr.y-15);
+  drawPoints(data2D,data2px_2d);
+}
+
+// ═══════════════════════════════════════════════════════
+//  HISTOGRAM
+// ═══════════════════════════════════════════════════════
+function renderHist(){
+  const pr=getPlotRect();
+  const bins=gv('histBins',20),vMin=gv('histMin',0),vMax=gv('histMax',150),maxCt=gv('histMaxCt',50);
+  ctx.fillStyle='#111822';ctx.fillRect(pr.x,pr.y,pr.w,pr.h);
+
+  const binW=pr.w/bins;
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.setLineDash([3,3]);ctx.lineWidth=1;
+  const yS=niceStep(maxCt,6);
+  ctx.fillStyle='#667';ctx.font='10px Consolas,monospace';
+  for(let v=0;v<=maxCt;v+=yS){
+    const y=pr.y+(1-v/maxCt)*pr.h;
+    ctx.beginPath();ctx.moveTo(pr.x,y);ctx.lineTo(pr.x+pr.w,y);ctx.stroke();
+    ctx.textAlign='right';ctx.fillText(v.toFixed(0),pr.x-8,y+3);
+  }
+  const xS=niceStep(vMax-vMin,8);
+  for(let v=Math.ceil(vMin/xS)*xS;v<=vMax;v+=xS){
+    const x=pr.x+(v-vMin)/(vMax-vMin)*pr.w;
+    ctx.textAlign='center';ctx.fillText(v.toFixed(0),x,pr.y+pr.h+14);
+  }
+  ctx.setLineDash([]);
+
+  // Bars
+  for(let i=0;i<bins;i++){
+    const ct=dataHist[i]?dataHist[i].count:0;
+    if(ct<=0)continue;
+    const barH=(ct/maxCt)*pr.h;
+    const x=pr.x+i*binW+1;
+    ctx.fillStyle=(dataHist[i].color||activeColor);
+    ctx.globalAlpha=0.7;
+    ctx.fillRect(x,pr.y+pr.h-barH,binW-2,barH);
+    ctx.globalAlpha=1;
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.strokeRect(x,pr.y+pr.h-barH,binW-2,barH);
+    // Count label
+    if(ct>0){ctx.fillStyle='#eee';ctx.font='9px Consolas';ctx.textAlign='center';ctx.fillText(ct,x+binW/2-1,pr.y+pr.h-barH-4);}
+  }
+
+  ctx.strokeStyle='#3a4a6e';ctx.lineWidth=1.5;ctx.strokeRect(pr.x,pr.y,pr.w,pr.h);
+  drawLabel(gv('histParam','GR'),pr.x+pr.w/2,pr.y+pr.h+38);
+  drawLabel('Count',16,pr.y+pr.h/2,-Math.PI/2);
+}
+
+// ═══════════════════════════════════════════════════════
+//  MULTI-TRACK WELL LOG
+// ═══════════════════════════════════════════════════════
+function renderMulti(){
+  const depthMin=gv('mDepthMin',0),depthMax=gv('mDepthMax',5000);
+  const trackW=(canvas.width-80)/3;
+  const m={top:50,bottom:55};
+  const pH=canvas.height-m.top-m.bottom;
+  const trackColors=['#e94560','#00b4d8','#2ecc71'];
+
+  ['A','B','C'].forEach((t,ti)=>{
+    const tLeft=65+ti*trackW;
+    const vMin=gv('m'+t+'Min',0),vMax=gv('m'+t+'Max',150);
+    const name=gv('m'+t+'Name',t);
+
+    // Track bg
+    ctx.fillStyle=ti===0?'#111822':ti===1?'#0f1520':'#101a25';
+    ctx.fillRect(tLeft,m.top,trackW,pH);
+
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.setLineDash([2,2]);ctx.lineWidth=1;
+    const dS=niceStep(depthMax-depthMin,10);
+    for(let d=Math.ceil(depthMin/dS)*dS;d<=depthMax;d+=dS){
+      const y=m.top+(d-depthMin)/(depthMax-depthMin)*pH;
+      ctx.beginPath();ctx.moveTo(tLeft,y);ctx.lineTo(tLeft+trackW,y);ctx.stroke();
+      if(ti===0){ctx.fillStyle='#667';ctx.font='10px Consolas';ctx.textAlign='right';ctx.fillText(d.toFixed(0),60,y+3);}
+    }
+    ctx.setLineDash([]);
+
+    // Border
+    ctx.strokeStyle='#3a4a6e';ctx.lineWidth=1;ctx.strokeRect(tLeft,m.top,trackW,pH);
+
+    // Header
+    ctx.fillStyle=trackColors[ti];ctx.font='bold 11px Segoe UI';ctx.textAlign='center';
+    ctx.fillText(`${name} [${vMin}–${vMax}]`,tLeft+trackW/2,m.top-10);
+
+    // Line + points
+    const arr=dataMulti[t];
+    const d2px=d=>data2px_multi(d,t);
+    drawLine(arr,d2px,trackColors[ti]+'88','depth');
+    drawPoints(arr,d2px);
+  });
+
+  drawLabel('Depth',16,m.top+pH/2,-Math.PI/2);
+}
+
+// ═══════════════════════════════════════════════════════
+//  TERNARY PLOT
+// ═══════════════════════════════════════════════════════
+function renderTern(){
+  const pr=getPlotRect({top:60,right:40,bottom:40,left:40});
+  const top_p={x:pr.x+pr.w/2,y:pr.y};
+  const bl={x:pr.x,y:pr.y+pr.h};
+  const br={x:pr.x+pr.w,y:pr.y+pr.h};
+
+  // Triangle fill
+  ctx.fillStyle='#111822';
+  ctx.beginPath();ctx.moveTo(top_p.x,top_p.y);ctx.lineTo(bl.x,bl.y);ctx.lineTo(br.x,br.y);ctx.closePath();ctx.fill();
+
+  // Grid lines (10% intervals)
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.setLineDash([2,2]);ctx.lineWidth=1;
+  for(let i=1;i<10;i++){
+    const f=i/10;
+    // Lines parallel to each edge
+    const ab1=lerp(top_p,bl,f),ab2=lerp(top_p,br,f);
+    ctx.beginPath();ctx.moveTo(ab1.x,ab1.y);ctx.lineTo(ab2.x,ab2.y);ctx.stroke();
+    const bc1=lerp(bl,top_p,f),bc2=lerp(bl,br,f);
+    ctx.beginPath();ctx.moveTo(bc1.x,bc1.y);ctx.lineTo(bc2.x,bc2.y);ctx.stroke();
+    const ca1=lerp(br,top_p,f),ca2=lerp(br,bl,f);
+    ctx.beginPath();ctx.moveTo(ca1.x,ca1.y);ctx.lineTo(ca2.x,ca2.y);ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Triangle border
+  ctx.strokeStyle='#3a4a6e';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(top_p.x,top_p.y);ctx.lineTo(bl.x,bl.y);ctx.lineTo(br.x,br.y);ctx.closePath();ctx.stroke();
+
+  // Labels
+  const la=gv('ternA','Sand'),lb=gv('ternB','Silt'),lc=gv('ternC','Clay');
+  ctx.fillStyle='#00b4d8';ctx.font='bold 13px Segoe UI';ctx.textAlign='center';
+  ctx.fillText(la,top_p.x,top_p.y-12);
+  ctx.fillText(lb,bl.x-10,bl.y+18);
+  ctx.fillText(lc,br.x+10,br.y+18);
+
+  // % labels along edges
+  ctx.fillStyle='#556';ctx.font='9px Consolas';
+  for(let i=0;i<=10;i+=2){
+    const f=i/10;
+    const pt=lerp(bl,br,f);
+    ctx.textAlign='center';ctx.fillText((100-i*10)+'',pt.x,pt.y+14);
+  }
+
+  // Points
+  const sz=+(document.getElementById('pointSize')||{value:4}).value;
+  dataTern.forEach(d=>{
+    const pt=tern2px(d.a,d.b,d.c);
+    ctx.beginPath();ctx.arc(pt.px,pt.py,sz,0,Math.PI*2);ctx.fillStyle=d.color;ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=.5;ctx.stroke();
+  });
+}
+function lerp(a,b,t){return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};}
+
+// ═══════════════════════════════════════════════════════
+//  FENCE / PIECEWISE LINEAR
+// ═══════════════════════════════════════════════════════
+function renderFence(){
+  const pr=getPlotRect();
+  const xMin=gv('fxMin',0),xMax=gv('fxMax',365),yMin=gv('fyMin',0),yMax=gv('fyMax',10000);
+  drawGrid(pr,xMin,xMax,yMin,yMax);
+  drawLabel(gv('fxLabel','Days'),pr.x+pr.w/2,pr.y+pr.h+42);
+  drawLabel(gv('fyLabel','Rate'),16,pr.y+pr.h/2,-Math.PI/2);
+
+  // Connect with lines sorted by X
+  if(dataFence.length>1){
+    const sorted=[...dataFence].sort((a,b)=>a.x-b.x);
+    ctx.strokeStyle='rgba(233,69,96,0.6)';ctx.lineWidth=2;ctx.beginPath();
+    const f=data2px_fence(sorted[0]);ctx.moveTo(f.px,f.py);
+    for(let i=1;i<sorted.length;i++){const pt=data2px_fence(sorted[i]);ctx.lineTo(pt.px,pt.py);}
+    ctx.stroke();
+
+    // Fill under curve
+    ctx.fillStyle='rgba(233,69,96,0.08)';ctx.beginPath();
+    ctx.moveTo(data2px_fence(sorted[0]).px,pr.y+pr.h);
+    sorted.forEach(d=>{const pt=data2px_fence(d);ctx.lineTo(pt.px,pt.py);});
+    ctx.lineTo(data2px_fence(sorted[sorted.length-1]).px,pr.y+pr.h);ctx.closePath();ctx.fill();
+  }
+  drawPoints(dataFence,data2px_fence);
+}
+
+// ═══════════════════════════════════════════════════════
+//  SEMI-LOG / LOG-LOG
+// ═══════════════════════════════════════════════════════
+function renderSemilog(){
+  const pr=getPlotRect();
+  const scale=gv('slScale','loglog');
+  const xMin=gv('slxMin',0.01),xMax=gv('slxMax',1000),yMin=gv('slyMin',0.001),yMax=gv('slyMax',1);
+
+  ctx.fillStyle='#111822';ctx.fillRect(pr.x,pr.y,pr.w,pr.h);
+
+  // Log grid
+  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.setLineDash([2,2]);ctx.lineWidth=1;
+  ctx.fillStyle='#667';ctx.font='10px Consolas,monospace';
+
+  // X axis grid
+  if(scale==='loglog'||scale==='semilog-x'){
+    drawLogGrid(pr,'x',xMin,xMax);
+  } else {
+    const s=niceStep(xMax-xMin,8);
+    for(let v=Math.ceil(xMin/s)*s;v<=xMax;v+=s){
+      const fx=(v-xMin)/(xMax-xMin);const x=pr.x+fx*pr.w;
+      ctx.beginPath();ctx.moveTo(x,pr.y);ctx.lineTo(x,pr.y+pr.h);ctx.stroke();
+      ctx.textAlign='center';ctx.fillText(v.toPrecision(3),x,pr.y+pr.h+14);
+    }
+  }
+
+  // Y axis grid
+  if(scale==='loglog'||scale==='semilog-y'){
+    drawLogGrid(pr,'y',yMin,yMax);
+  } else {
+    const s=niceStep(yMax-yMin,8);
+    for(let v=Math.ceil(yMin/s)*s;v<=yMax;v+=s){
+      const fy=(v-yMin)/(yMax-yMin);const y=pr.y+(1-fy)*pr.h;
+      ctx.beginPath();ctx.moveTo(pr.x,y);ctx.lineTo(pr.x+pr.w,y);ctx.stroke();
+      ctx.textAlign='right';ctx.fillText(v.toPrecision(3),pr.x-8,y+3);
+    }
+  }
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle='#3a4a6e';ctx.lineWidth=1.5;ctx.strokeRect(pr.x,pr.y,pr.w,pr.h);
+  drawLabel(gv('slxLabel','Porosity'),pr.x+pr.w/2,pr.y+pr.h+42);
+  drawLabel(gv('slyLabel','Resistivity'),16,pr.y+pr.h/2,-Math.PI/2);
+  ctx.fillStyle='#aab';ctx.font='12px Segoe UI';ctx.textAlign='center';
+  ctx.fillText(scale.replace('-',' ').toUpperCase()+' Plot',pr.x+pr.w/2,pr.y-12);
+
+  drawPoints(dataSemilog,data2px_semilog);
+}
+
+function drawLogGrid(pr,axis,min,max){
+  const logMin=Math.floor(Math.log10(min)),logMax=Math.ceil(Math.log10(max));
+  const range=Math.log10(max)-Math.log10(min);
+  for(let e=logMin;e<=logMax;e++){
+    for(let m=1;m<10;m++){
+      const v=m*Math.pow(10,e);
+      if(v<min||v>max)continue;
+      const f=(Math.log10(v)-Math.log10(min))/range;
+      if(axis==='x'){
+        const x=pr.x+f*pr.w;
+        ctx.strokeStyle=m===1?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.04)';
+        ctx.beginPath();ctx.moveTo(x,pr.y);ctx.lineTo(x,pr.y+pr.h);ctx.stroke();
+        if(m===1){ctx.fillStyle='#667';ctx.textAlign='center';ctx.fillText(v.toPrecision(2),x,pr.y+pr.h+14);}
+      } else {
+        const y=pr.y+(1-f)*pr.h;
+        ctx.strokeStyle=m===1?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.04)';
+        ctx.beginPath();ctx.moveTo(pr.x,y);ctx.lineTo(pr.x+pr.w,y);ctx.stroke();
+        if(m===1){ctx.fillStyle='#667';ctx.textAlign='right';ctx.fillText(v.toPrecision(2),pr.x-8,y+3);}
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ZONE / FILL
+// ═══════════════════════════════════════════════════════
+function renderZone(){
+  const zoneM={top:50,right:30,bottom:55,left:65};
+  const pr=getPlotRect(zoneM);
+  const dMin=gv('zDepthMin',0),dMax=gv('zDepthMax',5000),vMin=gv('zValMin',0),vMax=gv('zValMax',150);
+
+  // Protect against zero-range axes
+  if(dMax<=dMin||vMax<=vMin){
+    ctx.fillStyle='#e94560';ctx.font='14px Segoe UI';ctx.textAlign='center';
+    ctx.fillText('Invalid axis range — check settings',canvas.width/2,canvas.height/2);
+    return;
+  }
+
+  drawGrid(pr,vMin,vMax,dMin,dMax,5,10,true);
+
+  const curveName=gv('zoneCurveName','GR');
+  const cutoff=gv('zoneCutoff',75);
+  drawLabel(curveName,pr.x+pr.w/2,pr.y-25);
+  drawLabel('Depth',16,pr.y+pr.h/2,-Math.PI/2);
+
+  // Active curve indicator at top
+  ctx.fillStyle=activeZoneCurve==='upper'?'#e94560':'#00b4d8';
+  ctx.font='bold 11px Segoe UI';ctx.textAlign='right';
+  ctx.fillText('Drawing: '+(activeZoneCurve==='upper'?'Left (red)':'Right (blue)')+' curve',pr.x+pr.w,pr.y-30);
+
+  // Draw cutoff line
+  if(cutoff>=vMin && cutoff<=vMax){
+    const cutX=pr.x+(cutoff-vMin)/(vMax-vMin)*pr.w;
+    ctx.strokeStyle='rgba(255,255,0,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(cutX,pr.y);ctx.lineTo(cutX,pr.y+pr.h);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#ff0';ctx.font='10px Consolas';ctx.textAlign='center';
+    ctx.fillText('Cutoff: '+cutoff,cutX,pr.y+pr.h+14);
+  }
+
+  // Fill between curves
+  const upper=[...dataZone.upper].sort((a,b)=>a.depth-b.depth);
+  const lower=[...dataZone.lower].sort((a,b)=>a.depth-b.depth);
+
+  if(upper.length>1 && lower.length>1){
+    try{
+      const allDepths=[...new Set([...upper.map(d=>d.depth),...lower.map(d=>d.depth)])].sort((a,b)=>a-b);
+      ctx.fillStyle='rgba(46,204,113,0.15)';
+      ctx.beginPath();
+      allDepths.forEach((depth,i)=>{
+        const val=interpAt(upper,depth);
+        const pt=data2px_zone({depth,value:val});
+        if(i===0)ctx.moveTo(pt.px,pt.py);else ctx.lineTo(pt.px,pt.py);
+      });
+      for(let i=allDepths.length-1;i>=0;i--){
+        const val=interpAt(lower,allDepths[i]);
+        const pt=data2px_zone({depth:allDepths[i],value:val});
+        ctx.lineTo(pt.px,pt.py);
+      }
+      ctx.closePath();ctx.fill();
+    }catch(e){}
+  }
+
+  // Draw curves with distinct colors
+  if(upper.length>0){
+    drawLine(upper,data2px_zone,'#e94560','depth');
+    const sz=+(document.getElementById('pointSize')||{value:4}).value;
+    dataZone.upper.forEach(d=>{
+      const pt=data2px_zone(d);
+      ctx.beginPath();ctx.arc(pt.px,pt.py,sz,0,Math.PI*2);
+      ctx.fillStyle='#e94560';ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=.5;ctx.stroke();
+    });
+  }
+  if(lower.length>0){
+    drawLine(lower,data2px_zone,'#00b4d8','depth');
+    const sz=+(document.getElementById('pointSize')||{value:4}).value;
+    dataZone.lower.forEach(d=>{
+      const pt=data2px_zone(d);
+      ctx.beginPath();ctx.arc(pt.px,pt.py,sz,0,Math.PI*2);
+      ctx.fillStyle='#00b4d8';ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=.5;ctx.stroke();
+    });
+  }
+
+  // Legend
+  ctx.font='10px Segoe UI';ctx.textAlign='left';
+  ctx.fillStyle='#e94560';ctx.fillRect(pr.x+5,pr.y+8,12,3);ctx.fillText('Left Curve',pr.x+22,pr.y+12);
+  ctx.fillStyle='#00b4d8';ctx.fillRect(pr.x+5,pr.y+22,12,3);ctx.fillText('Right Curve',pr.x+22,pr.y+26);
+}
+
+function interpAt(arr,depth){
+  if(arr.length===0)return 0;
+  if(depth<=arr[0].depth)return arr[0].value;
+  if(depth>=arr[arr.length-1].depth)return arr[arr.length-1].value;
+  for(let i=0;i<arr.length-1;i++){
+    if(depth>=arr[i].depth&&depth<=arr[i+1].depth){
+      const t=(depth-arr[i].depth)/(arr[i+1].depth-arr[i].depth);
+      return arr[i].value+t*(arr[i+1].value-arr[i].value);
+    }
+  }
+  return arr[arr.length-1].value;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATA TABLE
+// ═══════════════════════════════════════════════════════
+function updateTable(){
+  const wrap=document.getElementById('dataPreview');
+  if(!wrap)return;
+  const el=document.getElementById('pointCount');
+  if(el)el.textContent=getCount();
+
+  let html='<table><thead><tr><th>#</th>';
+
+  if(currentTab==='1d'||currentTab==='zone'){html+='<th>Depth</th><th>Value</th>';}
+  else if(currentTab==='2d'||currentTab==='fence'||currentTab==='semilog'){html+='<th>X</th><th>Y</th>';}
+  else if(currentTab==='hist'){html+='<th>Bin</th><th>Count</th>';}
+  else if(currentTab==='multi'){const nA=gv('mAName','GR'),nB=gv('mBName','RHOB'),nC=gv('mCName','NPHI');html+=`<th>Depth</th><th>${nA}</th><th>${nB}</th><th>${nC}</th>`;}
+  else if(currentTab==='tern'){html+='<th>A%</th><th>B%</th><th>C%</th>';}
+
+  html+='</tr></thead><tbody>';
+
+  let rows=[];
+  if(currentTab==='1d') data1D.slice(-40).reverse().forEach((d,i)=>rows.push(`<tr><td>${data1D.length-i}</td><td>${d.depth}</td><td>${d.value}</td></tr>`));
+  else if(currentTab==='2d') data2D.slice(-40).reverse().forEach((d,i)=>rows.push(`<tr><td>${data2D.length-i}</td><td>${d.x}</td><td>${d.y}</td></tr>`));
+  else if(currentTab==='hist') dataHist.forEach((b,i)=>{if(b&&b.count>0){const vMin=gv('histMin',0),vMax=gv('histMax',150),bins=gv('histBins',20);const bv=vMin+i*(vMax-vMin)/bins;rows.push(`<tr><td>${i+1}</td><td>${bv.toFixed(1)}</td><td>${b.count}</td></tr>`);}});
+  else if(currentTab==='multi'){
+    const depthMap={};
+    ['A','B','C'].forEach(t=>dataMulti[t].forEach(d=>{if(!depthMap[d.depth])depthMap[d.depth]={depth:d.depth};depthMap[d.depth][t]=d.value;}));
+    const merged=Object.values(depthMap).sort((a,b)=>a.depth-b.depth).slice(-40).reverse();
+    merged.forEach((r,i)=>rows.push(`<tr><td>${r.depth}</td><td>${r.A!==undefined?r.A:'—'}</td><td>${r.B!==undefined?r.B:'—'}</td><td>${r.C!==undefined?r.C:'—'}</td></tr>`));
+  }
+  else if(currentTab==='tern') dataTern.slice(-40).reverse().forEach((d,i)=>rows.push(`<tr><td>${dataTern.length-i}</td><td>${d.a}</td><td>${d.b}</td><td>${d.c}</td></tr>`));
+  else if(currentTab==='fence') dataFence.slice(-40).reverse().forEach((d,i)=>rows.push(`<tr><td>${dataFence.length-i}</td><td>${d.x}</td><td>${d.y}</td></tr>`));
+  else if(currentTab==='semilog') dataSemilog.slice(-40).reverse().forEach((d,i)=>rows.push(`<tr><td>${dataSemilog.length-i}</td><td>${d.x}</td><td>${d.y}</td></tr>`));
+  else if(currentTab==='zone'){
+    dataZone.upper.slice(-20).reverse().forEach((d,i)=>rows.push(`<tr><td>U${dataZone.upper.length-i}</td><td>${d.depth}</td><td>${d.value}</td></tr>`));
+    dataZone.lower.slice(-20).reverse().forEach((d,i)=>rows.push(`<tr><td>L${dataZone.lower.length-i}</td><td>${d.depth}</td><td>${d.value}</td></tr>`));
+  }
+
+  if(rows.length===0) rows.push('<tr><td colspan="4" style="color:var(--text-dim)">No data</td></tr>');
+  html+=rows.join('')+'</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════
+function buildCSV(){
+  let csv='';
+  if(currentTab==='1d'){
+    csv=`Depth,${gv('curveName','GR')}\n`;
+    [...data1D].sort((a,b)=>a.depth-b.depth).forEach(d=>csv+=`${d.depth},${d.value}\n`);
+  } else if(currentTab==='2d'){
+    csv=`${gv('xLabel','X')},${gv('yLabel','Y')}\n`;
+    data2D.forEach(d=>csv+=`${d.x},${d.y}\n`);
+  } else if(currentTab==='hist'){
+    const vMin=gv('histMin',0),vMax=gv('histMax',150),bins=gv('histBins',20);
+    csv=`BinStart,BinEnd,Count\n`;
+    dataHist.forEach((b,i)=>{if(b&&b.count>0){const bw=(vMax-vMin)/bins;csv+=`${(vMin+i*bw).toFixed(2)},${(vMin+(i+1)*bw).toFixed(2)},${b.count}\n`;}});
+  } else if(currentTab==='multi'){
+    const nA=gv('mAName','GR'),nB=gv('mBName','RHOB'),nC=gv('mCName','NPHI');
+    csv=`Depth,${nA},${nB},${nC}\n`;
+    // Collect all unique depths, merge tracks into rows
+    const depthMap={};
+    ['A','B','C'].forEach(t=>{
+      dataMulti[t].forEach(d=>{
+        if(!depthMap[d.depth])depthMap[d.depth]={depth:d.depth};
+        depthMap[d.depth][t]=d.value;
+      });
+    });
+    Object.values(depthMap).sort((a,b)=>a.depth-b.depth).forEach(r=>{
+      csv+=`${r.depth},${r.A!==undefined?r.A:-999.25},${r.B!==undefined?r.B:-999.25},${r.C!==undefined?r.C:-999.25}\n`;
+    });
+  } else if(currentTab==='tern'){
+    const la=gv('ternA','A'),lb=gv('ternB','B'),lc=gv('ternC','C');
+    csv=`${la}%,${lb}%,${lc}%\n`;
+    dataTern.forEach(d=>csv+=`${d.a},${d.b},${d.c}\n`);
+  } else if(currentTab==='fence'){
+    csv=`${gv('fxLabel','X')},${gv('fyLabel','Y')}\n`;
+    [...dataFence].sort((a,b)=>a.x-b.x).forEach(d=>csv+=`${d.x},${d.y}\n`);
+  } else if(currentTab==='semilog'){
+    csv=`${gv('slxLabel','X')},${gv('slyLabel','Y')}\n`;
+    dataSemilog.forEach(d=>csv+=`${d.x},${d.y}\n`);
+  } else if(currentTab==='zone'){
+    csv=`Boundary,Depth,${gv('zoneCurveName','Value')}\n`;
+    [...dataZone.upper].sort((a,b)=>a.depth-b.depth).forEach(d=>csv+=`Upper,${d.depth},${d.value}\n`);
+    [...dataZone.lower].sort((a,b)=>a.depth-b.depth).forEach(d=>csv+=`Lower,${d.depth},${d.value}\n`);
+  }
+  return csv||null;
+}
+
+function exportCSV(){
+  const csv=buildCSV();
+  if(!csv){showToast('No data');return;}
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download=`datapainter_${currentTab}_${Date.now()}.csv`;
+  a.click();URL.revokeObjectURL(url);
+  showToast('CSV downloaded!');
+}
+
+function copyClipboard(){
+  const csv=buildCSV();
+  if(!csv){showToast('No data');return;}
+  navigator.clipboard.writeText(csv).then(()=>showToast('Copied!')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=csv;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('Copied!');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  PNG EXPORT
+// ═══════════════════════════════════════════════════════
+function exportPNG(){
+  // Re-render to ensure canvas is current
+  render();
+  const dataURL = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = dataURL;
+  const tabLabel = TABS.find(t=>t.id===currentTab);
+  const name = tabLabel ? tabLabel.label.replace(/[\s\/]+/g,'_') : currentTab;
+  a.download = `DataPainter_${name}_${Date.now()}.png`;
+  a.click();
+  showToast('PNG downloaded!');
+}
+
+// ═══════════════════════════════════════════════════════
+//  LAS 2.0 EXPORT
+// ═══════════════════════════════════════════════════════
+function buildLAS(){
+  const NULL_VAL = -999.25;
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10);
+  let curves=[], units=[], data=[];
+
+  if(currentTab==='1d'){
+    const curveName=gv('curveName','GR');
+    const sorted=[...data1D].sort((a,b)=>a.depth-b.depth);
+    if(sorted.length===0) return null;
+    const depthMin=sorted[0].depth, depthMax=sorted[sorted.length-1].depth;
+    const step = sorted.length>1 ? ((depthMax-depthMin)/(sorted.length-1)).toFixed(4) : '0.5000';
+    curves=[{name:'DEPT',unit:'FT',desc:'DEPTH'},{name:curveName,unit:'',desc:curveName}];
+    data=sorted.map(d=>[d.depth, d.value]);
+    return formatLAS(curves,data,depthMin,depthMax,step,NULL_VAL,dateStr);
+  }
+  else if(currentTab==='multi'){
+    const nA=gv('mAName','GR'),nB=gv('mBName','RHOB'),nC=gv('mCName','NPHI');
+    // Merge all tracks on depth
+    const depthMap={};
+    ['A','B','C'].forEach(t=>{
+      dataMulti[t].forEach(d=>{
+        if(!depthMap[d.depth])depthMap[d.depth]={depth:d.depth};
+        depthMap[d.depth][t]=d.value;
+      });
+    });
+    const rows=Object.values(depthMap).sort((a,b)=>a.depth-b.depth);
+    if(rows.length===0) return null;
+    const depthMin=rows[0].depth, depthMax=rows[rows.length-1].depth;
+    const step = rows.length>1 ? ((depthMax-depthMin)/(rows.length-1)).toFixed(4) : '0.5000';
+    curves=[
+      {name:'DEPT',unit:'FT',desc:'DEPTH'},
+      {name:nA,unit:'GAPI',desc:nA},
+      {name:nB,unit:'G/CC',desc:nB},
+      {name:nC,unit:'V/V',desc:nC}
+    ];
+    data=rows.map(r=>[
+      r.depth,
+      r.A!==undefined?r.A:NULL_VAL,
+      r.B!==undefined?r.B:NULL_VAL,
+      r.C!==undefined?r.C:NULL_VAL
+    ]);
+    return formatLAS(curves,data,depthMin,depthMax,step,NULL_VAL,dateStr);
+  }
+  return null;
+}
+
+function formatLAS(curves,data,strt,stop,step,nullVal,date){
+  // Compute column width for nice formatting
+  const colW=12;
+  let las='';
+
+  // ~VERSION INFORMATION
+  las+='~VERSION INFORMATION\n';
+  las+=' VERS.                 2.0   : CWLS LOG ASCII STANDARD - VERSION 2.0\n';
+  las+=' WRAP.                  NO   : ONE LINE PER DEPTH STEP\n';
+  las+='\n';
+
+  // ~WELL INFORMATION
+  las+='~WELL INFORMATION\n';
+  las+=` STRT.FT    ${pad(strt,14)}: START DEPTH\n`;
+  las+=` STOP.FT    ${pad(stop,14)}: STOP DEPTH\n`;
+  las+=` STEP.FT    ${pad(step,14)}: STEP\n`;
+  las+=` NULL.       ${pad(nullVal,13)}: NULL VALUE\n`;
+  las+=` COMP.                     : Data Painter (TerraNomad)\n`;
+  las+=` WELL.                     : PAINTED WELL\n`;
+  las+=` FLD .                     : \n`;
+  las+=` LOC .                     : \n`;
+  las+=` SRVC.                     : Data Painter\n`;
+  las+=` DATE.          ${date}   : LOG DATE\n`;
+  las+='\n';
+
+  // ~CURVE INFORMATION
+  las+='~CURVE INFORMATION\n';
+  curves.forEach(c=>{
+    las+=` ${c.name.padEnd(8)}.${c.unit.padEnd(6)} ${pad('',10)}: ${c.desc}\n`;
+  });
+  las+='\n';
+
+  // ~PARAMETER INFORMATION
+  las+='~PARAMETER INFORMATION\n';
+  las+='\n';
+
+  // ~A (ASCII LOG DATA)
+  las+='~A';
+  curves.forEach(c=>{ las+= c.name.padStart(colW); });
+  las+='\n';
+
+  data.forEach(row=>{
+    let line='';
+    row.forEach(v=>{
+      const s = typeof v==='number' ? v.toFixed(4) : String(v);
+      line += s.padStart(colW);
+    });
+    las += line+'\n';
+  });
+
+  return las;
+}
+
+function pad(v,w){return String(v).padStart(w);}
+
+function exportLAS(){
+  const las=buildLAS();
+  if(!las){showToast('No data to export');return;}
+  const blob=new Blob([las],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  const name = currentTab==='multi' ? 'multitrack_well' : `welllog_${gv('curveName','GR')}`;
+  a.download=`${name}.las`;
+  a.click();URL.revokeObjectURL(url);
+  showToast('LAS 2.0 downloaded!');
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1600);}
+
+// ═══════════════════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='z'){e.preventDefault();undoLast();}
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  if(e.key==='c')setMode('click');
+  if(e.key==='d')setMode('draw');
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+buildTabs();
+buildSidebar();
+resizeCanvas();
+render();
+</script>
+</body>
+</html>
